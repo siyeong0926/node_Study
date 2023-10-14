@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link href="main.css" rel="stylesheet">
+</head>
+<body class="grey-bg">
+
+<!--재사용이 많은 것들은 ejs 파일에 만들어서 include 하면 더 편하다-->
+<%- include('nav.ejs')%>
+
+<!--sever 에서 작성한 ejs 써서 html 안에 서버 데이터를 꽂아넣음 -->
+<!--    <%= JSON.stringify(글목록)%>-->
+<!-- JSON 으로 안하면 Array, Object 가 깨져서 등록됨-->
+
+<div class="white-bg">
+
+
+<!--     자바스크립트 문법에는 <%%> 요걸 사용 해야함-->
+    <%for (let i = 0; i < 글목록.length; i++){ %>
+    <div class="list-box">
+        <h4><%= 글목록[i].title%></h4>
+        <p>글내용임</p>
+    </div>
+   <%}%>
+
+</div>
+
+</body>
+</html>
