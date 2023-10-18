@@ -8,12 +8,9 @@
         const app = express()
 
             //몽고디비 라이브러리에서 몽고디비 클라이언트를 불러오기
-            const {MongoClient} = require('mongodb')
+            const {MongoClient, ObjectId} = require('mongodb')
             //몽고디비 연결 문자열 설정
             const uri = "your_mongodb_connection_string";
-            //몽고클라이언트 인스턴스를 생성하고, 연결 옵션을 설정함
-            const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
-
 
             //public 디렉토리 파일들을 호스팅 하도록 익스프레스에 지시함
             app.use(express.static(__dirname + '/public'))
@@ -33,6 +30,7 @@
             app.use(express.urlencoded({extended:true}))
 
             //--------------------------------------------------------------------------------------------------
+                        //아래는 몽고디비를 연결하는 코드들이다.
 
                                     //몽고DB 연결 링크 및 아이디 비밀번호 작성
             const url = 'mongodb+srv://keroin100:rla334@cluster0.tu6tvsy.mongodb.net/?retryWrites=true&w=majority'
@@ -57,7 +55,7 @@
             })
 
             app.get('/news', (요청, 응답)=> {
-                db.collection('post').insertOne({title : '어쩌구'}) //DB 에 값 넣기
+                db.collection('post').insertOne({title : '어쩌구'}) //DB 에 값 넣기 : insertOne
                 // 응답.send('오늘 비옴')
             })
 
@@ -82,9 +80,32 @@
                 응답.render('write.ejs')
             })
 
-            app.post('/add', (요청,응답)=>{
-                console.log(요청.body)
+            app.post('/add', async (요청,응답)=>{
+                try {
 
+                    if (요청.body.title == ''){
+                        응답.send('제목 입력 안함')
+
+                    }else {
+                        await db.collection('post').insertOne({title : 요청.body.title
+                        , content : 요청.body.content})
+                        응답.redirect('/list')
+                    }
+
+                }catch (error){
+                    console.error('데이터 삽입에 실패하였습니다', error);
+                    응답.status(500).send({ message : '서버 에러'});
+                }
+
+                //console.log(요청.body)
                 //HTML 요청의 본문에 포함된 데이터에 접근하는데 사용됨
                 //요청.body
             })
+
+
+            app.get("/detail/:id", async (req,res)=>{
+                let result = await db.collection('post').findOne({ _id : new ObjectId(req.params.id)})
+                console.log(new ObjectId(req.params.id))
+                res.render('detail.ejs',{titleName : result})
+            })
+
