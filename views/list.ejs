@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>Title</title>
-    <link href="main.css" rel="stylesheet">
+    <link href="/main.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body class="grey-bg">
 
@@ -20,12 +21,39 @@
 <!--     자바스크립트 문법에는 <%%> 요걸 사용 해야함-->
     <%for (let i = 0; i < 글목록.length; i++){ %>
     <div class="list-box">
-        <h4><%= 글목록[i].title%></h4>
-        <p>글내용임</p>
+            <h4>
+
+                <a href="/detail/<%= 글목록[i]._id %>">
+                    <%= 글목록[i].title%>
+                </a>
+
+                <a href="/edit/<%= 글목록[i]._id %>">📝</a>
+
+                <span class="delete" data-id="<%= 글목록[i]._id %>">🗑️</span>
+            </h4>
+        <%}%>
     </div>
-   <%}%>
+
+    <a href="/list/next/<%= 글목록[글목록.length-1]._id%>">다음</a>
+
 
 </div>
+
+<script>
+
+    document.querySelectorAll('.delete')[1].addEventListener('click', function(e) {
+        fetch('/delete?docid=' + e.target.dataset.id, {
+            method: 'DELETE'
+        })
+            .then((r) => r.text())  // 서버의 응답을 텍스트로 변환
+            .then((r) => {console.log(r);  // 서버의 응답을 콘솔에 출력
+            })
+            .catch(error => {
+                console.error('Fetch error: ', error);
+            });
+    });
+
+</script>
 
 </body>
 </html>
