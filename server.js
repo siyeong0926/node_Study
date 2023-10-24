@@ -60,7 +60,7 @@
                         //아래는 몽고디비를 연결하는 코드들이다.
 
                                     //몽고DB 연결 링크 및 아이디 비밀번호 작성
-            const url = 'mongodb+srv://keroin100:rla334@cluster0.tu6tvsy.mongodb.net/?retryWrites=true&w=majority'
+            const url = 'y'
                 //connect 가 몽고디비에 접속을 해줌
             new MongoClient(url).connect().then((client)=>{
                 // 그 접속이 성공 하면 연결성공 출력
