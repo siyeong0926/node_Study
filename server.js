@@ -105,6 +105,7 @@
                                     //몽고DB 연결 링크 및 아이디 비밀번호 작성
 
             let connectDB = require('./database.js')
+            const {router} = require("express/lib/application");
 
             let db;
             connectDB.then((client)=>{
@@ -332,7 +333,7 @@
 
 
             //--------------------------------------------------------------------------------------------------
-
+                    //수정 페이지
 
 
             app.get("/edit/:id", async (req,res)=>{
@@ -373,117 +374,29 @@
 
 
             //--------------------------------------------------------------------------------------------------
-
-            app.delete('/delete', async (req,res)=>{
-                console.log(req.query)
-
-                await db.collection('post').deleteOne(
-                    {_id : new ObjectId(req.query.docid)})
-                res.send('삭제됐음')
-
-            })
+                        // 삭제 api
+            app.delete('/delete', require('./routes/delete'))
 
 
             //--------------------------------------------------------------------------------------------------
+                        // 페이지의 게시글을 5개씩 나눠서 보여주는 api
+            app.get('/list/:id', require('./routes/fiveList'))
+            app.get('/list/next/:id', require('./routes/fiveList'))
 
 
-            // 페이지의 게시글을 5개씩 나눠서 보여주는 api
-            app.get('/list/:id', async (요청, 응답)=>{
-
-                let result = await db.collection('post').find()
-                    .skip( (요청.params.id - 1) * 5).limit(5).toArray()
-                응답.render('list.ejs', { 글목록 : result})
-            })
-
-            app.get('/list/next/:id', async (요청, 응답)=>{
-
-                let result = await db.collection('post')
-                    .find({ _id : {$gt : new ObjectId(요청.params.id) }})
-                    .limit(5).toArray()
-                응답.render('list.ejs', { 글목록 : result})
-            })
 
             //--------------------------------------------------------------------------------------------------
 
                                 //회원가입
-            app.get('/join', async (요청,응답)=>{
-                응답.render('join.ejs')
-            })
-
-            app.post('/join', async (요청,응답,cb)=>{
-
-                //bcrypt 사용을 하기 위해서 작성하는 코드
-                let 해시 = await bcrypt.hash(요청.body.password, 10) //숫자10은 얼마나 꼬아줄 것인지 15도 가능함
-
-                //findOne 함수는 몽고DB 콜렉션에서 주어진 조건에 맞는 첫 번째 문서를 찾아 반환하는데
-                // 만약 조건에 맞는 문서가 없으면 null을 반환한다.
-
-                //요청.body에서 받은 username 과 일치하는 username 을 가진 문서를 user 콜렉션에서 찾아라
-                let result = await db.collection('user').findOne({username : 요청.body.username});
-
-
-                // console.log(요청)
-                // console.log(응답) 이거 두 개 출력하면 뭐가 엄청 많이 출력됨
-
-                try {
-
-                    if (요청.body.username == ''){
-                        응답.send('아이디 입력 안함')
-
-                    }else if (요청.body.password == '') {
-                        응답.send('비번 입력 안함')
-
-                    //이 조건문은 찾은 문서가 null이 아니라면, 즉 조건에 맞는 문서가 존재한다면 이라는 의미가 된다
-                        //결국 조건문에 따라 아이디가 중복된 내용을 체크하고 아이디 중복됨을 출력한다.
-                    }else if (result !== null) {
-                       응답.send('아이디 중복됨')
-                        console.log(result)
-
-                    }else if (요청.body.password !== 요청.body.passwordTwo){
-                        console.log(요청.body.password)
-                        console.log(요청.body.passwordTwo)
-                        응답.send('비밀번호가 같지 않다')
-                    }
-
-                    else {
-                        await db.collection('user')
-                            .insertOne({
-                                username : 요청.body.username
-                                , password : 해시})
-
-                        console.log(해시)
-                        응답.redirect('/')
-                    }
-
-                }catch (error){
-                    console.error('회원가입에 실패하였습니다', error);
-                    응답.status(500).send({ message : '서버 에러'});
-                }
-
-            })
+            app.get('/join', require('./routes/join'))
+            app.post('/join', require('./routes/join'))
 
 
             //--------------------------------------------------------------------------------------------------
                             //로그인
 
-            app.get('/login', async (요청,응답)=>{
-
-                응답.render('login.ejs')
-            })
-            app.post('/login', async (요청,응답,next)=>{
-
-                passport.authenticate('local', (error, user, info) => {
-
-                    if (error) return 응답.status(500).json(error)
-                    if (!user) return 응답.status(400).json(info.message)
-
-                    요청.logIn(user, (err)=>{
-
-                        if (err) return next(err);
-                        응답.redirect('/'); //로그인 완료시 실행 할 코드
-                    })
-                })(요청,응답, next);
-            })
+            app.get('/login' , require('./routes/login.js'))
+            app.post('/login' , require('./routes/login.js'))
 
             //--------------------------------------------------------------------------------------------------
                         //마이페이지
