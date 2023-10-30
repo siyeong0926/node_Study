@@ -16,6 +16,15 @@
             // 이 라이브러리는 HTML 폼에서 PUT, DELETE와 같은 HTTP 메소드를 사용할 수 있게 해줍니다.
             const methodOverride = require('method-override');
 
+            //bcrypt 세팅
+            const bcrypt = require('bcrypt')
+
+            //세션데이터를 DB에 저장하는 라이브러리 세팅
+            const MongoStore = require('connect-mongo')
+
+            //환경 변수를 보관 할 수 있게 하는 뭐 그런 세팅
+            require('dotenv').config()
+
             // method-override를 사용하여 '_method'라는 쿼리 문자열로 전달된 HTTP 메소드를 인식할 수 있도록 합니다.
             // 예를 들어, POST 요청에 '_method=DELETE'라는 쿼리 문자열이 있으면, 이를 DELETE 요청으로 인식합니다.
             app.use(methodOverride('_method'));
@@ -36,6 +45,7 @@
             app.use(express.json())
             //URL-encoded 데이터 파싱을 위한 미들웨어 추가
             app.use(express.urlencoded({extended:true}))
+
             //--------------------------------------------------------------------------------------------------
                         //passport 라이브러리 세팅
 
@@ -43,6 +53,7 @@
             const session = require('express-session')
             const passport = require('passport')
             const LocalStrategy = require('passport-local')
+            const {data} = require("express-session/session/cookie");
 
             // app.use 순서 틀리면 이상해질 수 있으니 주의
             app.use(passport.initialize())
@@ -50,31 +61,169 @@
 
                 secret: '암호화에 쓸 비번',  // 세션 문자열 암호화에 사용(길면 좋음) 털리면 인생 끝남
                 resave : false, //유저가 서버로 요청을 할 때마다 session 데이터 다시 갱신할지 여부 (false 추천)
-                saveUninitialized : false //유저가 로그인 안해도 세션을 만들것인지 여부 (false 추천)
+                saveUninitialized : false, //유저가 로그인 안해도 세션을 만들것인지 여부 (false 추천)
+                //cookie : {maxAge : 60 * 60 * 1000} // 세션 유효기간을 변경 할 수 있음
+                store : MongoStore.create({ //세션 데이터 DB에 저장을 위한 라이브러리 세팅
+                                    //내 몽고디비 접속용 URL
+                    mongoUrl : process.env.DB_URL
+                                    //database 이름
+                    ,dbName : 'forum'
+                })
             }))
 
             app.use(passport.session())
 
+            //--------------------------------------------------------------------------------------------------
+            //--------------------------------------------------------------------------------------------------
+                            //aws s3 관련 multer 라이브러리 세팅
 
+            const { S3Client } = require('@aws-sdk/client-s3')
+            const multer = require('multer')
+            const multerS3 = require('multer-s3')
+            const s3 = new S3Client({
+                region : 'ap-northeast-2',
+                credentials : {
+                    accessKeyId : process.env.S3_KEY,
+                    secretAccessKey : process.env.S3_SECRET,
+                }
+            })
+
+            const upload = multer({
+                storage: multerS3({
+                    s3: s3,
+                    bucket: 'hodumaruforum1',
+                    key: function (요청, file, cb) {
+                        cb(null, Date.now().toString()) //업로드시 파일명 변경가능
+                    }
+                })
+            })
+
+            //--------------------------------------------------------------------------------------------------
             //--------------------------------------------------------------------------------------------------
                         //아래는 몽고디비를 연결하는 코드들이다.
 
                                     //몽고DB 연결 링크 및 아이디 비밀번호 작성
-            const url = 'y'
-                //connect 가 몽고디비에 접속을 해줌
-            new MongoClient(url).connect().then((client)=>{
+
+            let connectDB = require('./database.js')
+
+            let db;
+            connectDB.then((client)=>{
                 // 그 접속이 성공 하면 연결성공 출력
                 console.log('DB연결성공')
                 // forum 이름으로 만든 데이터베이스 프로젝트에 연결함
                 db = client.db('forum')
                 //위에서 DB 연결을 하고 그 이후에 서버를 띄우야 하기 때문에 여기에 배치
-                app.listen(8080, () => {
+                app.listen(process.env.PORT, () => {
                     console.log('http://localhost:8080 에서 서버 실행 중')
                 })
             }).catch((err)=>{
                 console.log(err)
             })
 
+            //--------------------------------------------------------------------------------------------------
+            //--------------------------------------------------------------------------------------------------
+            //--------------------------------------------------------------------------------------------------
+
+
+            //제출한 아이디, 비번을 DB와 비교하는 로직 코드
+            passport.use(new LocalStrategy(async (입력한아이디, 입력한비번, cb) => {
+                console.log(입력한아이디)
+                console.log(입력한비번)
+                console.log(cb)
+
+                let result = await db.collection('user').findOne({ username : 입력한아이디})
+
+                if (!result) {
+                    return cb(null, false, { message: '아이디 DB에 없음' })
+                }
+
+                //비밀번호를 비교 할 때 해싱이 되어서 저장이 됐기 때문에
+                //bcrypt.compare 를 사용해서 입력한 비번을 비교해서 같으면 true 같은 걸 뱉어준다.
+                // 때문에 조건식에 이렇게 담아주는 것
+                if (await bcrypt.compare(입력한비번, result.password)) {
+
+                    return cb(null, result)
+                } else {
+                    return cb(null, false, { message: '비번불일치' });
+                }
+            }))
+
+            //--------------------------------------------------------------------------------------------------
+
+            ///로그인시 세션 만들기 (로그인 유지)
+            passport.serializeUser((user, done) =>{// 요청.login() 쓰면 자동 실행됨
+                console.log(user)
+                console.log(done)
+
+                process.nextTick(() =>{ //내부 코드를 비동기적으로 실행시켜줌
+
+                    // 여기 내용을 세션 document 메모리에 발행해줌 (db는 다음 강의)
+                    done(null,{id : user._id , username : user.username} )
+                    //password는 저장 안하는 것이 좋을 듯
+                })
+            })
+
+            //유저가 보낸 쿠키 분석, 즉 로그인 할 때 쿠키가 같이 전송되는데 그 쿠키를 까보고 분석하는거임
+            //쿠키를 까보고 세션 데이터와 비교 후 별 이상이 없으면 현재 로그인된 유저 정보를 알려줌
+            //이런 분석을 하는 기능을 갖고 있어서 아무 api에서 요청.user 라고 입력하면 로그인된 유저 정보 알려줌
+            passport.deserializeUser(async (user, done)=>{
+                //세션 정보를 요청.user 에 담아주는 것은 좋으나, 오래 되면 사실과 다를 수 있는 문제가 발생
+                //좋은 관습은 db조회부터 해보는 것이다.
+
+                // user 콜렉션에서 user.id 를 가져와 result 변수에 담고
+                let result = await db.collection('user').findOne({_id : new ObjectId(user.id)})
+
+                delete result.password //비번은 민감한 정보니까 삭제하고 요청.user에 담아줌
+
+                process.nextTick(()=>{
+                    done(null, result) //result 자리에 원래 user 가 들어가는데 result 로 대체
+                    //이렇게 하면 최신 유저 정보를 요청.user 에 넣을 수 있다.
+                })
+            })
+
+
+            //--------------------------------------------------------------------------------------------------
+            //--------------------------------------------------------------------------------------------------
+            //--------------------------------------------------------------------------------------------------
+
+                            //미들웨어 함수를 만들자
+
+            function checkLogin(요청,응답,next){
+                if (!요청.user){
+                    응답.send('로그인 하숑 !')
+                }
+                next()
+            }
+
+            function checkTime(요청,응답,next){
+                if ('/list'){
+                    console.log(new Date().toLocaleTimeString());
+                }
+                next()
+            }
+
+            function checkBlank(요청,응답,next){
+                if (요청.body.username == '' || 요청.body.password == ''){
+                    응답.send('빈칸은 안돼안돼')
+                }else {
+                    next();
+                }
+            }
+
+            function loggedin(요청,응답,next){
+
+                //로그인 후 세션이 있으면 요청.user 가 항상 존재함
+                if (요청.user){// 로그인 상태 확인(로그인 되었다면)
+                    next(); //통과
+                }else {
+                    응답.send('로그인 먼저 하셈')
+                }
+            }
+
+            app.use('/list', checkTime)
+            app.post('/login', checkBlank)
+
+            //--------------------------------------------------------------------------------------------------
             //--------------------------------------------------------------------------------------------------
 
             app.get('/', (요청, 응답) => {
@@ -103,18 +252,42 @@
                 let data = 응답.render('time.ejs', { date : new Date()})
             })
 
+            //--------------------------------------------------------------------------------------------------
+                        //글쓰기
             app.get('/write', (요청,응답)=>{
                 응답.render('write.ejs')
             })
 
-            app.post('/add', async (요청,응답)=>{
-                try {
+            app.post('/add', upload.single('img1'), async (요청,응답)=>{
 
+
+                //업로드 완료시 이미지 URL 생성해줌
+                //요청.file
+                console.log(요청.file.location)
+
+                //!요청.user는 요청.user가 undefined인지 아닌지를 검사하는 방법입니다.
+                // 만약 요청.user가 undefined이면, !요청.user는 true가 되어 if문의 조건을 만족하게 됩니다.
+                // 즉, 사용자가 로그인하지 않았다면 !요청.user는 true가 되어
+                // 로그인 하십숑이라는 메시지를 보내고 함수를 종료합니다.
+                // 사용자의 로그인 상태를 확인함
+                    if (!요청.user) {// 로그인이 되어있지 않다면
+                        응답.send('로그인 하십숑')
+                        return
+                    }
+
+                    try {
+                        let result = await db.collection('user').findOne({_id : new ObjectId(요청.user._id)})
                     if (요청.body.title == ''){
                         응답.send('제목 입력 안함')
 
                     }else {
-                        await db.collection('post').insertOne({title : 요청.body.title , content : 요청.body.content})
+
+                        await db.collection('post').insertOne({
+                            title : 요청.body.title ,
+                            content : 요청.body.content,
+                            img : 요청.file.location
+
+                        })
                         응답.redirect('/list')
                     }
 
@@ -129,9 +302,14 @@
                 //요청.body
             })
 
+            //--------------------------------------------------------------------------------------------------
+                //상세 페이지
 
             app.get("/detail/:id", async (req,res)=>{
                 try {
+
+                    // MongoDB의 'post' 컬렉션에서 _id 필드가 URL 파라미터로 받은 id와 일치하는 문서를 찾습니다.
+                    // URL 파라미터로 받은 id는 문자열이므로, MongoDB의 ObjectId로 변환해줘야 합니다.
                     let result = await db.collection('post').findOne({ _id : new ObjectId(req.params.id)})
                     console.log(new ObjectId(req.params.id))
 
@@ -139,13 +317,24 @@
                         res.status(400).send('이상한 url 입력했음')
                     }
 
-                    res.render('detail.ejs',{titleName : result})
+                    res.render('detail.ejs',{
+                        titleName : result,
+                        contentName : result,
+                        imgURL : result
+                    })
 
                 }catch (e){
                     console.log(e)
                         res.status(400).send('이상한 url 입력함')
                 }
             })
+
+
+
+            //--------------------------------------------------------------------------------------------------
+
+
+
             app.get("/edit/:id", async (req,res)=>{
 
                 let result = await db.collection('post').findOne({ _id : new ObjectId(req.params.id)})
@@ -182,6 +371,9 @@
             // })
 
 
+
+            //--------------------------------------------------------------------------------------------------
+
             app.delete('/delete', async (req,res)=>{
                 console.log(req.query)
 
@@ -190,6 +382,9 @@
                 res.send('삭제됐음')
 
             })
+
+
+            //--------------------------------------------------------------------------------------------------
 
 
             // 페이지의 게시글을 5개씩 나눠서 보여주는 api
@@ -207,5 +402,101 @@
                     .limit(5).toArray()
                 응답.render('list.ejs', { 글목록 : result})
             })
+
+            //--------------------------------------------------------------------------------------------------
+
+                                //회원가입
+            app.get('/join', async (요청,응답)=>{
+                응답.render('join.ejs')
+            })
+
+            app.post('/join', async (요청,응답,cb)=>{
+
+                //bcrypt 사용을 하기 위해서 작성하는 코드
+                let 해시 = await bcrypt.hash(요청.body.password, 10) //숫자10은 얼마나 꼬아줄 것인지 15도 가능함
+
+                //findOne 함수는 몽고DB 콜렉션에서 주어진 조건에 맞는 첫 번째 문서를 찾아 반환하는데
+                // 만약 조건에 맞는 문서가 없으면 null을 반환한다.
+
+                //요청.body에서 받은 username 과 일치하는 username 을 가진 문서를 user 콜렉션에서 찾아라
+                let result = await db.collection('user').findOne({username : 요청.body.username});
+
+
+                // console.log(요청)
+                // console.log(응답) 이거 두 개 출력하면 뭐가 엄청 많이 출력됨
+
+                try {
+
+                    if (요청.body.username == ''){
+                        응답.send('아이디 입력 안함')
+
+                    }else if (요청.body.password == '') {
+                        응답.send('비번 입력 안함')
+
+                    //이 조건문은 찾은 문서가 null이 아니라면, 즉 조건에 맞는 문서가 존재한다면 이라는 의미가 된다
+                        //결국 조건문에 따라 아이디가 중복된 내용을 체크하고 아이디 중복됨을 출력한다.
+                    }else if (result !== null) {
+                       응답.send('아이디 중복됨')
+                        console.log(result)
+
+                    }else if (요청.body.password !== 요청.body.passwordTwo){
+                        console.log(요청.body.password)
+                        console.log(요청.body.passwordTwo)
+                        응답.send('비밀번호가 같지 않다')
+                    }
+
+                    else {
+                        await db.collection('user')
+                            .insertOne({
+                                username : 요청.body.username
+                                , password : 해시})
+
+                        console.log(해시)
+                        응답.redirect('/')
+                    }
+
+                }catch (error){
+                    console.error('회원가입에 실패하였습니다', error);
+                    응답.status(500).send({ message : '서버 에러'});
+                }
+
+            })
+
+
+            //--------------------------------------------------------------------------------------------------
+                            //로그인
+
+            app.get('/login', async (요청,응답)=>{
+
+                응답.render('login.ejs')
+            })
+            app.post('/login', async (요청,응답,next)=>{
+
+                passport.authenticate('local', (error, user, info) => {
+
+                    if (error) return 응답.status(500).json(error)
+                    if (!user) return 응답.status(400).json(info.message)
+
+                    요청.logIn(user, (err)=>{
+
+                        if (err) return next(err);
+                        응답.redirect('/'); //로그인 완료시 실행 할 코드
+                    })
+                })(요청,응답, next);
+            })
+
+            //--------------------------------------------------------------------------------------------------
+                        //마이페이지
+
+            // /mypage 요청과 mypage.ejs 응답 사이에 loggedin 함수를 넣으면
+            // 중간에 함수를 실행시켜준다
+            app.get('/mypage', loggedin,(요청,응답)=>{
+                console.log('마이페이지에 접근한 유저 정보', 요청.user) //쿠키분석 덕에 요청.user는 유저 정보를 알려줌
+                응답.render('mypage.ejs', {user : 요청.user})
+            })
+
+            //--------------------------------------------------------------------------------------------------
+
+            app.use('/shop' , require('./routes/shop.js'))
 
 
