@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        header {
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            padding-top: 30px;
+            min-height: 70px;
+            border-bottom: 1px #bbb solid;
+        }
+        nav {
+            display: flex;
+            justify-content: space-between;
+            background: #555;
+            padding: 0 10px;
+        }
+        nav ul {
+            padding: 0;
+            list-style: none;
+            background: #555;
+        }
+        nav li {
+            float: left;
+        }
+        nav a {
+            text-decoration: none;
+            color: white;
+            padding: 7px 15px;
+            display: block;
+        }
+        nav a:hover {
+            background: #333;
+        }
+        main {
+            padding: 20px;
+        }
+        footer {
+            text-align: center;
+            padding: 30px 20px;
+        }
+    </style>
+</head>
+<body>
+<header>
+    <h1>Welcome to My Page</h1>
+</header>
+<nav>
+    <ul>
+        <li><a href="#">Home</a></li>
+        <li><a href="#">My Page</a></li>
+        <li><a href="http://localhost:8080/write">글쓰기</a></li>
+    </ul>
+</nav>
+
+<p> <%= user.username%> 의 마이페이지</p>
+<p> id : <%= user.id %></p>
+
+</body>
+</html>

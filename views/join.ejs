@@ -10,11 +10,11 @@
 
 <!-- /add 경로로 post 요청을 전송함-->
 <!--form 태그를 쓰면 POST 요청 가능-->
-<form class="form-box" action="/add" method="post" enctype="multipart/form-data">
-    <h4>글쓰기</h4>
-    <input name="title">
-    <input name="content">
-    <input type="file" name="img1" accept="image/*" multiple>
+<form class="form-box" action="/join" method="post">
+    <h4>회원가입</h4>
+    <input name="username">
+    <input name="password" type="password">
+    <input name="passwordTwo" type="password">
     <button type="submit">전송</button>
 </form>
 

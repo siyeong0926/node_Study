@@ -12,7 +12,7 @@
         app.use(express.json())
         app.use(express.urlencoded({extended:true}))
 
-        const url = 'mongodb+srv://keroin100:rla334@cluster0.tu6tvsy.mongodb.net/?retryWrites=true&w=majority'
+        const url = process.env.DB_URL
 
         new MongoClient(url).connect().then((client) =>{
             console.log('DB연결 성공')
