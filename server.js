@@ -104,11 +104,13 @@
 
                                     //몽고DB 연결 링크 및 아이디 비밀번호 작성
 
+
             let connectDB = require('./database.js')
             const {router} = require("express/lib/application");
 
             let db;
             connectDB.then((client)=>{
+
                 // 그 접속이 성공 하면 연결성공 출력
                 console.log('DB연결성공')
                 // forum 이름으로 만든 데이터베이스 프로젝트에 연결함
