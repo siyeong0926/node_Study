@@ -238,140 +238,33 @@
 
             app.get('/about', (요청,응답) =>{
                 응답.sendFile(__dirname + '/about.html')
+                //__dirname을 사용하면 파일 시스템에서의 위치에 상관없이 정확한 파일 경로를 얻을 수 있어,
+                // 파일을 읽거나 쓰는 등의 작업을 할 때 유용합니다.
             })
+            //--------------------------------------------------------------------------------------------------
+                    // 목록
 
-            // await 을 쓰기 위해서는 함수 부분에 async 를 써야한다
-            app.get('/list', async (요청, 응답)=>{
-                let result = await db.collection('post').find().toArray() // db 에서 컬렉션에 있던 모든 document가 출력
+            app.get('/list', require('./routes/list'))
 
-                // ejs 파일은 sendFile 가 아닌 render(파일경로) 이렇게 작성해야함
-                응답.render('list.ejs', { 글목록 : result})
-                // ejs 파일은 views 폴더 안에 만들어야함
-            })
-
+            //--------------------------------------------------------------------------------------------------
+                        //현재시간 출력 (연습용)
             app.get('/time', (요청, 응답) =>{
                 let data = 응답.render('time.ejs', { date : new Date()})
             })
 
             //--------------------------------------------------------------------------------------------------
                         //글쓰기
-            app.get('/write', (요청,응답)=>{
-                응답.render('write.ejs')
-            })
-
-            app.post('/add', upload.single('img1'), async (요청,응답)=>{
-
-
-                //업로드 완료시 이미지 URL 생성해줌
-                //요청.file
-                console.log(요청.file.location)
-
-                //!요청.user는 요청.user가 undefined인지 아닌지를 검사하는 방법입니다.
-                // 만약 요청.user가 undefined이면, !요청.user는 true가 되어 if문의 조건을 만족하게 됩니다.
-                // 즉, 사용자가 로그인하지 않았다면 !요청.user는 true가 되어
-                // 로그인 하십숑이라는 메시지를 보내고 함수를 종료합니다.
-                // 사용자의 로그인 상태를 확인함
-                    if (!요청.user) {// 로그인이 되어있지 않다면
-                        응답.send('로그인 하십숑')
-                        return
-                    }
-
-                    try {
-                        let result = await db.collection('user').findOne({_id : new ObjectId(요청.user._id)})
-                    if (요청.body.title == ''){
-                        응답.send('제목 입력 안함')
-
-                    }else {
-
-                        await db.collection('post').insertOne({
-                            title : 요청.body.title ,
-                            content : 요청.body.content,
-                            img : 요청.file.location
-
-                        })
-                        응답.redirect('/list')
-                    }
-
-                }catch (error){
-                    console.error('데이터 삽입에 실패하였습니다', error);
-                    응답.status(500).send({ message : '서버 에러'});
-                }
-
-                //console.log(요청.body)
-                //HTML 요청의 본문에 포함된 데이터에 접근하는데 사용됨
-                //유저가 input 에 입력한 글들이 담겨있음
-                //요청.body
-            })
+            app.get('/write', require('./routes/write'))
+            app.post('/add', require('./routes/write'))
 
             //--------------------------------------------------------------------------------------------------
                 //상세 페이지
-
-            app.get("/detail/:id", async (req,res)=>{
-                try {
-
-                    // MongoDB의 'post' 컬렉션에서 _id 필드가 URL 파라미터로 받은 id와 일치하는 문서를 찾습니다.
-                    // URL 파라미터로 받은 id는 문자열이므로, MongoDB의 ObjectId로 변환해줘야 합니다.
-                    let result = await db.collection('post').findOne({ _id : new ObjectId(req.params.id)})
-                    console.log(new ObjectId(req.params.id))
-
-                    if (result == null){
-                        res.status(400).send('이상한 url 입력했음')
-                    }
-
-                    res.render('detail.ejs',{
-                        titleName : result,
-                        contentName : result,
-                        imgURL : result
-                    })
-
-                }catch (e){
-                    console.log(e)
-                        res.status(400).send('이상한 url 입력함')
-                }
-            })
-
-
+            app.get('/detail/:id', require('./routes/detail'))
 
             //--------------------------------------------------------------------------------------------------
                     //수정 페이지
-
-
-            app.get("/edit/:id", async (req,res)=>{
-
-                let result = await db.collection('post').findOne({ _id : new ObjectId(req.params.id)})
-
-                console.log(new ObjectId(req.params.id))
-
-                res.render("edit.ejs", {result})
-            })
-
-            app.put("/edit", async (req,res)=>{
-
-                try {
-                    let result = await db.collection('post').updateOne(
-                        {_id : new ObjectId(req.body.id )},
-                        {$set : { title : req.body.title, content : req.body.content }})
-
-                    console.log(req.body)
-                    res.redirect('/list')
-
-                    if (result == null){
-                        res.status(400).send('문제있는 url')
-                    }
-                }catch (e){
-                    console.log(e)
-                    res.status(400).send('문제되는 URL임')
-
-                }
-
-            });
-            // app.put('/edit', async (req,res)=>{
-            //     await db.collection('post').updateOne(
-            //         { _id : 1 },
-            //         {$inc : {like : -2}})
-            // })
-
-
+            app.get('/edit/:id', require('./routes/edit'))
+            app.put('/edit', require('./routes/edit'))
 
             //--------------------------------------------------------------------------------------------------
                         // 삭제 api
