@@ -16,10 +16,11 @@
 <button class="search-send">검색</button>
 
 <script>
+
     // 검색 버튼 누르면 서버로 get 요청
     // 그런데 input에 입력한 값 또한 query string 로 보낼 것
     document.querySelector('.search-send').addEventListener('click', function (){
-       let 입력한거 =  document.querySelector('.search').value
+        let 입력한거 =  document.querySelector('.search').value
         location.href = '/search?val=' + 입력한거
     })
 </script>
@@ -31,23 +32,21 @@
 
 
 <div class="white-bg">
+    <h4>검색결과</h4>
 
-<!--     자바스크립트 문법에는 <%%> 요걸 사용 해야함-->
-
-
-
+    <!--     자바스크립트 문법에는 <%%> 요걸 사용 해야함-->
     <%for (let i = 0; i < 글목록.length; i++){ %>
     <div class="list-box">
-            <h4>
+        <h4>
 
-                <a href="/detail/<%= 글목록[i]._id %>">
-                    <%= 글목록[i].title%>
-                </a>
+            <a href="/detail/<%= 글목록[i]._id %>">
+                <%= 글목록[i].title%>
+            </a>
 
-                <a href="/edit/<%= 글목록[i]._id %>">📝</a>
+            <a href="/edit/<%= 글목록[i]._id %>">📝</a>
 
-                <span class="delete" data-id="<%= 글목록[i]._id %>">🗑️</span>
-            </h4>
+            <span class="delete" data-id="<%= 글목록[i]._id %>">🗑️</span>
+        </h4>
         <%}%>
     </div>
 
@@ -56,23 +55,6 @@
 
 </div>
 
-<script>
-
-    document.querySelectorAll('.delete')[1].addEventListener('click', function(e) {
-        fetch('/delete?docid=' + e.target.dataset.id, {
-            method: 'DELETE'
-        })
-            .then((r) => r.text())  // 서버의 응답을 텍스트로 변환
-            .then((r) => {console.log(r);  // 서버의 응답을 콘솔에 출력
-            })
-            .catch(error => {
-                console.error('Fetch error: ', error);
-            });
-    });
-
-
-
-</script>
 
 </body>
 </html>
